@@ -1,6 +1,3 @@
-import os
-print("FYERS_CLIENT_ID:", os.environ.get("FYERS_CLIENT_ID"))
-print("FYERS_CLIENT_SECRET:", os.environ.get("FYERS_CLIENT_SECRET"))
 from flask import Flask, request
 
 app = Flask(__name__)
