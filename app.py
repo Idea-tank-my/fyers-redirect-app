@@ -1,27 +1,18 @@
-import requests
-import urllib.parse
-from flask import Flask, request
 import os
-client_id = os.environ.get("FYERS_CLIENT_ID")
-
-redirect_uri = "https://fyers-redirect-app.onrender.com/callback"  # Replace with your actual redirect URI
-response_type = "code"
-state = "your_state_value"  # You can use any string here
-
-base_url = "https://api.fyers.in/api/v2/generate-authcode"
-query_params = {
-    "client_id": client_id,
-    "redirect_uri": redirect_uri,
-    "response_type": response_type,
-    "state": state
-}
-auth_url = f"{base_url}?{urllib.parse.urlencode(query_params)}"
+import hashlib
+import requests
+from flask import Flask, request
 
 app = Flask(__name__)
 
-@app.route('/login')
-def login():
-    return auth_url
+client_id = os.environ.get("FYERS_CLIENT_ID")
+secret_key = os.environ.get("FYERS_CLIENT_SECRET")
+redirect_uri = "https://fyers-redirect-app.onrender.com/callback"
+
+def generate_app_id_hash(client_id, secret_key):
+    app_id_secret = f"{client_id}:{secret_key}"
+    app_id_hash = hashlib.sha256(app_id_secret.encode()).hexdigest()
+    return app_id_hash
 
 @app.route('/callback')
 def callback():
@@ -29,27 +20,27 @@ def callback():
     if not code:
         return "Authorization code not provided.", 400
 
-    token_url = "https://api.fyers.in/api/v2/generate-token"
-    data = {
+    app_id_hash = generate_app_id_hash(client_id, secret_key)
+
+    token_url = "https://api-t1.fyers.in/api/v3/validate-authcode"
+    payload = {
         "grant_type": "authorization_code",
-        "client_id": client_id,
-        "code": code,
-        "redirect_uri": redirect_uri,
-        "client_secret": os.environ.get("FYERS_CLIENT_SECRET")
+        "appIdHash": app_id_hash,
+        "code": code
     }
-    try:
-        response = requests.post(token_url, data=data)
-        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-        token_data = response.json()
-        access_token = token_data.get("access_token")
 
-        if access_token:
-            return f"Access Token: {access_token}", 200
-        else:
-            return "Access token not found in response.", 500
+    response = requests.post(token_url, json=payload)
 
-    except requests.exceptions.RequestException as e:
-        return f"Error exchanging code for token: {e}", 500
+    if response.status_code == 200:
+        access_token = response.json().get("access_token")
+        return f"Access Token: {access_token}", 200
+    else:
+        return f"Error exchanging code for token: {response.status_code} {response.text}", 500
+
+@app.route('/login')
+def login():
+    auth_url = f"https://api-t1.fyers.in/api/v3/generate-authcode?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&state=your_state_value"
+    return f'<a href="{auth_url}">Login to Fyers</a>'
 
 if __name__ == '__main__':
     app.run(debug=True)
