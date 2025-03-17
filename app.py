@@ -21,6 +21,9 @@ def callback():
         return "Authorization code not provided.", 400
 
     app_id_hash = generate_app_id_hash(client_id, secret_key)
+    print(f"Client ID: {client_id}")
+    print(f"Secret Key: {secret_key}")
+    print(f"App ID Hash: {app_id_hash}")
 
     token_url = "https://api-t1.fyers.in/api/v3/validate-authcode"
     payload = {
